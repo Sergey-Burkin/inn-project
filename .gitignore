@@ -341,3 +341,7 @@ install.log
 *.wcftrace.javascript.javascript
 *.wcftrace.javascript.jsx
 *.wcftrace.javascript.ts
+
+# IDE-specific files
+.vscode/
+.idea/

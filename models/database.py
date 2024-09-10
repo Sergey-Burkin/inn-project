@@ -3,7 +3,6 @@ from psycopg2 import pool
 import bcrypt
 
 
-
 class DatabaseManager:
     def __init__(self):
         self.connection_pool = pool.SimpleConnectionPool(
@@ -13,6 +12,7 @@ class DatabaseManager:
             user="postgres",
             password="admin"
         )
+        self.create_tables()
 
     def get_connection(self):
         return self.connection_pool.getconn()
@@ -118,44 +118,52 @@ class DatabaseManager:
 
         conn.commit()
         print("Таблицы успешно созданы")
-        db_manager.release_connection(conn)
+        self.release_connection(conn)
+
+
+    def hash_password(self, password):
+            salt = bcrypt.gensalt()
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+            return hashed_password.decode('utf-8')
+
+
+    def register_user(self, username, email, password, role):
+        conn = db_manager.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (%s, %s, %s, %s)",
+                        (username, email, self.hash_password(password), role))
+            
+            conn.commit()
+            print(f"User {username} registered successfully")
+        except Exception as e:
+            print(f"Error registering user: {e}")
+            conn.rollback()
+        finally:
+            db_manager.release_connection(conn)
+
+    def create_course(self, title, teacher_id):
+        conn = db_manager.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("INSERT INTO courses (title, teacher_id) VALUES (%s, %s)", (title, teacher_id))
+            course_id = cursor.fetchone()[0]
+            conn.commit()
+            print(f"Course '{title}' created successfully (ID: {course_id})")
+        except Exception as e:
+            print(f"Error creating course: {e}")
+            conn.rollback()
+        finally:
+            db_manager.release_connection(conn)
+
+
+
+    def get_user_by_username(self):
+        pass
+
+
+
 
 db_manager = DatabaseManager()
-db_manager.create_tables()
-
-def hash_password(password):
-        salt = bcrypt.gensalt()
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-        return hashed_password.decode('utf-8')
-
-
-def register_user(username, email, password, role):
-    conn = db_manager.get_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (%s, %s, %s, %s)",
-                      (username, email, hash_password(password), role))
-        
-        conn.commit()
-        print(f"User {username} registered successfully")
-    except Exception as e:
-        print(f"Error registering user: {e}")
-        conn.rollback()
-    finally:
-        db_manager.release_connection(conn)
-
-def create_course(title, teacher_id):
-    conn = db_manager.get_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("INSERT INTO courses (title, teacher_id) VALUES (%s, %s)", (title, teacher_id))
-        course_id = cursor.fetchone()[0]
-        conn.commit()
-        print(f"Course '{title}' created successfully (ID: {course_id})")
-    except Exception as e:
-        print(f"Error creating course: {e}")
-        conn.rollback()
-    finally:
-        db_manager.release_connection(conn)

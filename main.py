@@ -1,49 +1,46 @@
-from PyQt5.QtWidgets import QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, QApplication, QHBoxLayout, QPushButton
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, QApplication, QPushButton, QHBoxLayout, QLineEdit
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
-import sys
+from ui.page_window import PageWindow
+from ui.search_window import SearchWindow
+from ui.start_window import StartWindow
 from ui.registration_window import RegistrationWindow
-from models.database import db_manager, hash_password, register_user
+from ui.courses_window import CourseWindow
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Main Window")
-        self.setGeometry(100, 100, 800, 600)
-        
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        layout = QVBoxLayout(central_widget)
-        
-        label = QLabel("Welcome to the Main Window!")
-        label.setFont(QFont("Arial", 24))
-        layout.addWidget(label)
-        
-        tab_widget = QTabWidget()
-        layout.addWidget(tab_widget)
-        
-        button_layout = QHBoxLayout()
-        register_button = QPushButton("Register")
-        login_button = QPushButton("Login")
-        
-        register_button.clicked.connect(self.open_registration_window)
-        # login_button.clicked.connect(self.open_login_window)
-        
-        button_layout.addWidget(register_button)
-        button_layout.addWidget(login_button)
-        
-        layout.addLayout(button_layout)
+class Window(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-    def open_registration_window(self):
-        RegistrationWindow().show()
+        self.stacked_widget = QtWidgets.QStackedWidget()
+        self.setCentralWidget(self.stacked_widget)
 
-    # def open_login_window(self):
-    #     LoginWindow().show()        
+        self.m_pages = {}
+
+        self.register(RegistrationWindow(), "reg")
+        self.register(StartWindow(), "main")
+        self.register(SearchWindow(), "search")
+        self.register(CourseWindow(), "course")
+
+        self.goto("main")
+
+    def register(self, widget, name):
+        self.m_pages[name] = widget
+        self.stacked_widget.addWidget(widget)
+        if isinstance(widget, PageWindow):
+            widget.gotoSignal.connect(self.goto)
+
+    @QtCore.pyqtSlot(str)
+    def goto(self, name):
+        if name in self.m_pages:
+            widget = self.m_pages[name]
+            self.stacked_widget.setCurrentWidget(widget)
+            self.setWindowTitle(widget.windowTitle())
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
+    import sys
+
+    app = QtWidgets.QApplication(sys.argv)
+    w = Window()
+    w.show()
     sys.exit(app.exec_())
