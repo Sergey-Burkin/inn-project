@@ -11,7 +11,7 @@ class CourseWindow(PageWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Регистрация")
+        self.setWindowTitle("Список курсов")
         self.setGeometry(300, 300, 400, 250)
         
         central_widget = QWidget()
@@ -20,7 +20,7 @@ class CourseWindow(PageWindow):
         layout = QVBoxLayout(central_widget)
 
                 
-        label = QLabel("Text")
+        label = QLabel("ultraBruh")
         label.setStyleSheet("font-size: 48pt; font-weight: bold;")
         
         layout.addWidget(label)

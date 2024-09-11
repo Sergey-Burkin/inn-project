@@ -160,8 +160,61 @@ class DatabaseManager:
 
 
 
-    def get_user_by_username(self):
-        pass
+    def get_user_by_username_or_email(self, username_or_email):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            query = "SELECT * FROM users WHERE (username = %s OR email = %s)"
+            cursor.execute(query, (username_or_email, username_or_email))
+            user_data = cursor.fetchone()
+
+            if user_data:
+                return {
+                    "id": user_data[0],
+                    "username": user_data[1],
+                    "email": user_data[2],
+                    "password_hash": user_data[3],
+                    "role": user_data[4]
+                }
+            else:
+                return None
+        except Exception as e:
+            print(f"Error fetching user data: {e}")
+            return None
+        finally:
+            self.release_connection(conn)
+
+    def authenticate_user(self, username, password):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            query = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(query, (username,))
+            user_data = cursor.fetchone()
+
+            if not user_data:
+                return False, None, "User not found"
+
+            hashed_password = user_data[3]  # Assuming password_hash is the 4th column
+            
+            if bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8')):
+                return True, {
+                    "id": user_data[0],
+                    "username": user_data[1],
+                    "email": user_data[2],
+                    "role": user_data[4]
+                }, "Authentication successful"
+            else:
+                return False, None, "Incorrect password"
+        except Exception as e:
+            print(f"Error authenticating user: {e}")
+            return False, None, f"An error occurred: {str(e)}"
+        finally:
+            self.release_connection(conn)
+
+
 
 
 

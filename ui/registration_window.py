@@ -62,6 +62,11 @@ class RegistrationWindow(PageWindow):
         button_register = QPushButton("Зарегистрироваться")
         button_register.clicked.connect(self.register)
         layout.addWidget(button_register)
+
+        # Кнопка назад
+        button_register = QPushButton("Назад")
+        button_register.clicked.connect(lambda: self.goto("main"))
+        layout.addWidget(button_register)
         
     
     def register(self):
@@ -70,23 +75,60 @@ class RegistrationWindow(PageWindow):
         confirm_password = self.confirm_password_input.text()
         email = self.email_input.text()
         role = "student" if self.student_radio.isChecked() else "teacher"
-
-        if not login or not password or not confirm_password or not email:
-            QMessageBox.warning(self, "Ошибка", "Все поля обязательны!")
-            return
+        db_manager = DatabaseManager()
         
+        # Username length limit
+        max_username_length = 50
+        if len(login) > max_username_length:
+            QMessageBox.warning(self, "Ошибка", f"Имя пользователя должно быть не более {max_username_length} символов!")
+            return
+
+        # Email length limit
+        max_email_length = 100
+        if len(email) > max_email_length:
+            QMessageBox.warning(self, "Ошибка", f"Адрес электронной почты должен быть не более {max_email_length} символов!")
+            return
+
+        # Password length limit
+        min_password_length = 1
+        max_password_length = 255
+        if len(password) < min_password_length:
+            QMessageBox.warning(self, "Ошибка", f"Пароль должен содержать не менее {min_password_length} символов!")
+            return
+        elif len(password) > max_password_length:
+            QMessageBox.warning(self, "Ошибка", f"Пароль должен быть не длиннее {max_password_length} символов!")
+            return
+
+        # Check if username already exists
+        existing_user = db_manager.get_user_by_username_or_email(login)
+        if existing_user:
+            QMessageBox.warning(self, "Ошибка", f"Пользователь с именем {login} уже существует!")
+            return
+
+        # Check if email already exists
+        existing_email = db_manager.get_user_by_username_or_email(email)
+        if existing_email:
+            QMessageBox.warning(self, "Ошибка", f"Email {email} уже используется!")
+            return
+
         if password != confirm_password:
             QMessageBox.warning(self, "Ошибка", "Пароли не совпадают!")
             return
-        
+
         # Здесь можно добавить логику регистрации
         print(f"Попытка регистрации пользователя: {login}, email: {email}")
-        
-        # Показываем сообщение об успехе
-        result = QMessageBox.information(self, "Успех", f"Пользователь {login} успешно зарегистрирован! Вы хотите войти в систему?")
-        db_manager = DatabaseManager()
-        db_manager.register_user(login, email, password, role)
-        if result == QMessageBox.Ok:
-            self.goto("course")
-        else:
-            self.close()
+
+        try:
+            db_manager.register_user(login, email, password, role)
+            result = QMessageBox.question(self, "Успех",
+                                      f"Пользователь {login} успешно зарегистрирован!\n"
+                                      "Вы хотите войти в систему?",
+                                      QMessageBox.Yes | QMessageBox.No,
+                                      QMessageBox.Yes)
+            if result == QMessageBox.Yes:
+                self.goto("course")
+            else:
+                self.goto("main")
+        except Exception as e:
+            print(f"Error registering user: {e}")
+            QMessageBox.critical(self, "Ошибка при регистрации", str(e))
