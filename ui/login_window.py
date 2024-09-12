@@ -46,10 +46,10 @@ class LoginWindow(PageWindow):
             QMessageBox.warning(self, "Ошибка", "Все поля обязательны!")
             return
         db_manager = DatabaseManager()
-        if db_manager.authenticate_user(username, password):
-            user = db_manager.get_user_by_username_or_email(username)
+        autentification_result  = db_manager.authenticate_user(username, password)
+        if autentification_result[0]:
+            user = autentification_result[1]
             if user:
-                settings.current_user = user
                 self.goto("course")
             else:
                 QMessageBox.warning(self, "Ошибка", "Пользователь не найден или неправильный пароль.")

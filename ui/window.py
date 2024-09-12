@@ -6,6 +6,8 @@ from ui.start_window import StartWindow
 from ui.registration_window import RegistrationWindow
 from ui.courses_window import CourseWindow
 from ui.login_window import LoginWindow
+from models.database import DatabaseManager
+
 
 class Window(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
@@ -20,8 +22,8 @@ class Window(QtWidgets.QMainWindow):
         self.register(StartWindow(), "main")
         self.register(CourseWindow(), "course")
         self.register(LoginWindow(), "login")
-
-        self.goto("login")
+        DatabaseManager().authenticate_user("guru", "guru")
+        self.goto("course")
 
     def register(self, widget, name):
         self.m_pages[name] = widget

@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QCheckBox, QRadioButton, QTextEdit, QListWidget, QListWidgetItem, QTabWidget, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QCheckBox, QRadioButton, QTextEdit, QListWidget, QListWidgetItem, QTabWidget, QVBoxLayout, QHBoxLayout, QInputDialog
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QFont
 from ui.page_window import PageWindow
@@ -38,7 +38,7 @@ class CourseWindow(PageWindow):
         self.course_list = QListWidget()
         self.course_list.itemSelectionChanged.connect(self.on_course_selection_changed)
         courses_layout.addWidget(self.course_list)
-
+        self.loadCoursesFromDatabase()
         # Buttons
         button_layout = QHBoxLayout()
         go_to_button = QPushButton("Go To Course")
@@ -48,7 +48,6 @@ class CourseWindow(PageWindow):
 
         button_layout.addWidget(go_to_button)
         button_layout.addWidget(logout_button)
-        print(settings.current_user["id"])
         if settings.current_user["role"] == "teacher":
             add_course_button = QPushButton("Add Course")
             delete_course_button = QPushButton("Delete Course")
@@ -79,9 +78,11 @@ class CourseWindow(PageWindow):
     def loadCoursesFromDatabase(self):
         self.course_list.clear()
         # Replace this with actual database loading logic
-        courses = ["Course " + str(x) for x in range(1, 109)]
-        for course in courses:
-            item = QListWidgetItem(course)
+        db_manager = DatabaseManager()
+
+        self.courses = db_manager.get_courses_by_user_id(settings.current_user["id"])
+        for course in self.courses:
+            item = QListWidgetItem(course["title"])
             self.course_list.addItem(item)
         
     @pyqtSlot()
@@ -113,12 +114,36 @@ class CourseWindow(PageWindow):
     @pyqtSlot()
     def on_add_course(self):
         # Implement add course logic here
+        course_name, ok = QInputDialog.getText(self, "Add Course", "Enter course name:")
+        
+        
+        if ok and course_name:
+            if len(course_name) > 200:
+                QMessageBox.warning(self, "Warning", f"The course name '{course_name}' is too long. It has {len(course_name)} characters, but the maximum allowed is 200.")
+                return
+            if len(course_name.strip()) == 0:
+                QMessageBox.warning(self, "Error", "Course name cannot be empty.")
+                return
+            db_manager = DatabaseManager()
+            db_manager.create_course(course_name, settings.current_user["id"])
+
         self.loadCoursesFromDatabase()
         pass
 
     @pyqtSlot()
     def on_delete_course(self):
         # Implement delete course logic here
+        selected_item = self.course_list.currentItem()
+        if not selected_item:
+            return
+        item_text = selected_item.text()
+        item_index = self.course_list.row(selected_item)
+        confirm_delete = QMessageBox.question(self, "Confirm Deletion", f"Are you sure you want to delete course '{item_text}'?")
+    
+        if confirm_delete == QMessageBox.Yes:
+            db_manager = DatabaseManager()
+            db_manager.delete_course_by_id(self.courses[item_index]["id"])
+            self.loadCoursesFromDatabase()
         pass
 
     @pyqtSlot()
