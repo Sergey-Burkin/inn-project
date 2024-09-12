@@ -33,5 +33,6 @@ class Window(QtWidgets.QMainWindow):
     def goto(self, name):
         if name in self.m_pages:
             widget = self.m_pages[name]
+            widget.initUI()
             self.stacked_widget.setCurrentWidget(widget)
             self.setWindowTitle(widget.windowTitle())

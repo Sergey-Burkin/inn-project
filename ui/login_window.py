@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, QHBoxLayout
 from PyQt5.QtCore import Qt
 from ui.page_window import PageWindow
-
+import settings
 from models.database import DatabaseManager
 
 class LoginWindow(PageWindow):
@@ -16,7 +16,6 @@ class LoginWindow(PageWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
-        # self.setLayout(layout)
         
         self.username_input = QLineEdit()
         self.password_input = QLineEdit()
@@ -50,6 +49,7 @@ class LoginWindow(PageWindow):
         if db_manager.authenticate_user(username, password):
             user = db_manager.get_user_by_username_or_email(username)
             if user:
+                settings.current_user = user
                 self.goto("course")
             else:
                 QMessageBox.warning(self, "Ошибка", "Пользователь не найден или неправильный пароль.")

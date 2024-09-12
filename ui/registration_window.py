@@ -126,7 +126,7 @@ class RegistrationWindow(PageWindow):
                                       QMessageBox.Yes | QMessageBox.No,
                                       QMessageBox.Yes)
             if result == QMessageBox.Yes:
-                self.goto("course")
+                self.goto("login")
             else:
                 self.goto("main")
         except Exception as e:
