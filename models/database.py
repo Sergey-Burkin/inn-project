@@ -39,35 +39,32 @@ class Course(Base):
     description = Column(Text)
     teacher_id = Column(Integer, ForeignKey('users.id'))
     created_at = Column(DateTime, default=datetime.utcnow)
+    tests = relationship("Test", back_populates="course")
+    video_materials = relationship("VideoMaterial", back_populates="course")
 
     students = relationship("User", secondary=user_courses, back_populates="courses")
-
-class CourseSection(Base):
-    __tablename__ = 'course_sections'
-    
-    id = Column(Integer, primary_key=True)
-    course_id = Column(Integer, ForeignKey('courses.id'))
-    title = Column(String(100), nullable=False)
-    order_num = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 class VideoMaterial(Base):
     __tablename__ = 'video_materials'
     
     id = Column(Integer, primary_key=True)
-    course_section_id = Column(Integer, ForeignKey('course_sections.id'))
+    course_id = Column(Integer, ForeignKey('courses.id'))
     title = Column(String(200), nullable=False)
     file_path = Column(String(255), nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    course = relationship("Course", back_populates="video_materials")
+
 
 class Test(Base):
     __tablename__ = 'tests'
     
     id = Column(Integer, primary_key=True)
-    course_section_id = Column(Integer, ForeignKey('course_sections.id'))
-    title = Column(String(100), nullable=False)
-    total_questions = Column(Integer, nullable=False)
+    course_id = Column(Integer, ForeignKey('courses.id'))
+    title = Column(String(200), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    course = relationship("Course", back_populates="tests")
 
 class TestQuestion(Base):
     __tablename__ = 'test_questions'
@@ -148,7 +145,6 @@ class DatabaseManager:
             self.session.close()
 
 
-
     def get_user_by_username_or_email(self, username_or_email):
         try:
             query = self.session.query(User).filter(or_(User.username == username_or_email, 
@@ -208,27 +204,86 @@ class DatabaseManager:
         finally:
             self.session.close()
 
-    def delete_course_by_id(self, course_id):
+
+    def add(self, entity_class, params):
         try:
-            self.session.begin_nested()  # Start a nested transaction
-            
-            # First, remove associations from user_courses
-            user_courses_deleted = self.session.query(user_courses).filter_by(course_id=course_id).delete()
-            
-            # Then delete the course
-            course_deleted = self.session.query(Course).filter_by(id=course_id).delete()
-            
-            # Commit the nested transaction
+            instance = entity_class(**params)
+            self.session.add(instance)
             self.session.commit()
-            
-            return course_deleted > 0  # Return True if course was deleted
-            
+            return instance.id
         except OperationalError as e:
             self.session.rollback()
-            print(f"Error deleting course: {e}")
+            print(f"Error adding {entity_class.__name__}: {e}")
+            return None
+        finally:
+            self.session.close()
+
+    def edit(self, entity_class, id, feature, new_value):
+        try:
+            instance = self.session.query(entity_class).filter_by(id=id).first()
+            if instance:
+                setattr(instance, feature, new_value)
+                self.session.commit()
+            else:
+                raise ValueError(f"{entity_class.__name__} with id {id} not found")
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error editing {entity_class.__name__}: {e}")
+        finally:
+            self.session.close()
+
+    def delete(self, entity_class, id):
+        try:
+            instance = self.session.query(entity_class).filter_by(id=id).first()
+            if instance:
+                self.session.delete(instance)
+                self.session.commit()
+                return True
+            else:
+                raise ValueError(f"{entity_class.__name__} with id {id} not found")
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error deleting {entity_class.__name__}: {e}")
             return False
         finally:
             self.session.close()
 
+    def get(self, entity_class, id):
+        try:
+            instance = self.session.query(entity_class).filter_by(id=id).first()
+            if instance:
+                return instance.__dict__
+            else:
+                raise ValueError(f"{entity_class.__name__} with id {id} not found")
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error getting {entity_class.__name__}: {e}")
+            return None
+        finally:
+            self.session.close()
+    
 
+    def get_related_objects(self, parent_entity_class, child_entity_class, parent_id):
+        try:
+            parent_instance = self.session.query(parent_entity_class).filter_by(id=parent_id).first()
+            if not parent_instance:
+                raise ValueError(f"{parent_entity_class.__name__} with id {parent_id} not found")
+
+            children = self.session.query(child_entity_class).filter(
+                child_entity_class.course_id == parent_id
+            ).all()
+
+            return [child.__dict__ for child in children]
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error getting related objects: {e}")
+            return []
+        finally:
+            self.session.close()
+
+    
+# Usage example:
 db_manager = DatabaseManager()
+
+# db_manager.add(Test, {"title": "New Test", "total_questions": 10})
+# db_manager.edit(Course, 1, "title", "Самый первый курс, с id=1")

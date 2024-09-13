@@ -4,13 +4,13 @@ from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QFont
 from ui.page_window import PageWindow
 from models.database import DatabaseManager
+import models.database 
 import settings
 
 
 class CourseWindow(PageWindow):
     def __init__(self):
         super().__init__()
-        # self.initUI()
 
     def initUI(self):
         self.setWindowTitle("Список курсов")
@@ -55,6 +55,9 @@ class CourseWindow(PageWindow):
             delete_course_button.clicked.connect(self.on_delete_course)
             button_layout.addWidget(add_course_button)
             button_layout.addWidget(delete_course_button)
+            edit_course_button = QPushButton("Edit Course")
+            edit_course_button.clicked.connect(self.on_edit_course)
+            button_layout.addWidget(edit_course_button)
 
         courses_layout.addLayout(button_layout)
 
@@ -77,9 +80,7 @@ class CourseWindow(PageWindow):
                 
     def loadCoursesFromDatabase(self):
         self.course_list.clear()
-        # Replace this with actual database loading logic
         db_manager = DatabaseManager()
-
         self.courses = db_manager.get_courses_by_user_id(settings.current_user["id"])
         for course in self.courses:
             item = QListWidgetItem(course["title"])
@@ -132,7 +133,6 @@ class CourseWindow(PageWindow):
 
     @pyqtSlot()
     def on_delete_course(self):
-        # Implement delete course logic here
         selected_item = self.course_list.currentItem()
         if not selected_item:
             return
@@ -142,7 +142,7 @@ class CourseWindow(PageWindow):
     
         if confirm_delete == QMessageBox.Yes:
             db_manager = DatabaseManager()
-            db_manager.delete_course_by_id(self.courses[item_index]["id"])
+            db_manager.delete(models.database.Course, self.courses[item_index]["id"])
             self.loadCoursesFromDatabase()
         pass
 
@@ -156,3 +156,13 @@ class CourseWindow(PageWindow):
         # Implement assignment logic here
         
         pass
+
+    @pyqtSlot()
+    def on_edit_course(self):
+        selected_item = self.course_list.currentItem()
+        if not selected_item:
+            QMessageBox.warning(self, "Warning", "Please select a course!")
+            return
+        
+        settings.current_course = self.courses[self.course_list.row(selected_item)]
+        self.goto("course_editor")

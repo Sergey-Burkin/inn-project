@@ -6,6 +6,7 @@ from ui.start_window import StartWindow
 from ui.registration_window import RegistrationWindow
 from ui.courses_window import CourseWindow
 from ui.login_window import LoginWindow
+from ui.course_editor import CourseEditor
 from models.database import DatabaseManager
 
 
@@ -22,6 +23,7 @@ class Window(QtWidgets.QMainWindow):
         self.register(StartWindow(), "main")
         self.register(CourseWindow(), "course")
         self.register(LoginWindow(), "login")
+        self.register(CourseEditor(), "course_editor")
         DatabaseManager().authenticate_user("guru", "guru")
         self.goto("course")
 
