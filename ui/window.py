@@ -24,8 +24,9 @@ class Window(QtWidgets.QMainWindow):
         self.register(CourseWindow(), "course")
         self.register(LoginWindow(), "login")
         self.register(CourseEditor(), "course_editor")
-        DatabaseManager().authenticate_user("guru", "guru")
-        self.goto("course")
+        # DatabaseManager().authenticate_user("guru", "guru")
+        # self.goto("course")
+        self.goto("main")
 
     def register(self, widget, name):
         self.m_pages[name] = widget

@@ -152,10 +152,22 @@ class CourseWindow(PageWindow):
         if not course_codename:
             QMessageBox.warning(self, "Error", "Please enter a course codename!")
             return
+    
+        db_manager = DatabaseManager()
+        new_course = db_manager.find_course_by_codename(course_codename)
         
-        # Implement assignment logic here
-        
-        pass
+        if new_course:
+            try:
+                db_manager.assign_user_to_course(settings.current_user["id"], new_course["id"])
+                self.loadCoursesFromDatabase()
+                
+                QMessageBox.information(self, "Success", f"You have been successfully assigned to course '{new_course['title']}'")
+            
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
+        else:
+            QMessageBox.warning(self, "Error", f"No course found with codename '{course_codename}'. Please check the codename and try again.")
+
 
     @pyqtSlot()
     def on_edit_course(self):

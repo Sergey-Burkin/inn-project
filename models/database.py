@@ -31,14 +31,17 @@ class User(Base):
 
     courses = relationship("Course", secondary=user_courses, back_populates="students")
 
+
 class Course(Base):
     __tablename__ = 'courses'
-    
+
     id = Column(Integer, primary_key=True)
     title = Column(String(200), nullable=False)
     description = Column(Text)
-    teacher_id = Column(Integer, ForeignKey('users.id'))
+    codename = Column(String(50))  # added codename column
+    teacher_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     created_at = Column(DateTime, default=datetime.utcnow)
+
     tests = relationship("Test", back_populates="course")
     video_materials = relationship("VideoMaterial", back_populates="course")
 
@@ -60,7 +63,7 @@ class Test(Base):
     __tablename__ = 'tests'
     
     id = Column(Integer, primary_key=True)
-    course_id = Column(Integer, ForeignKey('courses.id'))
+    course_id = Column(Integer, ForeignKey('courses.id', ondelete='CASCADE'))
     title = Column(String(200), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -70,7 +73,7 @@ class TestQuestion(Base):
     __tablename__ = 'test_questions'
     
     id = Column(Integer, primary_key=True)
-    test_id = Column(Integer, ForeignKey('tests.id'))
+    test_id = Column(Integer, ForeignKey('tests.id', ondelete='CASCADE'))
     question_text = Column(Text, nullable=False)
     correct_answer = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -79,8 +82,8 @@ class UserAnswer(Base):
     __tablename__ = 'user_answers'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    test_question_id = Column(Integer, ForeignKey('test_questions.id'))
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
+    test_question_id = Column(Integer, ForeignKey('test_questions.id', ondelete='CASCADE'))
     answer_text = Column(String(255))
     submitted_at = Column(DateTime, default=datetime.utcnow)
 
@@ -144,6 +147,34 @@ class DatabaseManager:
         finally:
             self.session.close()
 
+    def assign_user_to_course(self, user_id, course_id):
+        try:
+            # Check if the assignment already exists
+            existing_assignment = self.session.query(user_courses).\
+                filter(user_courses.c.user_id == user_id,
+                       user_courses.c.course_id == course_id).\
+                first()
+            
+            if existing_assignment:
+                print(f"Assignment between user {user_id} and course {course_id} already exists.")
+                return
+            
+            # If no existing assignment, create a new one
+            self.session.execute(
+                user_courses.insert().values(
+                    user_id=user_id,
+                    course_id=course_id
+                )
+            )
+            self.session.commit()
+            print(f"User {user_id} assigned to course {course_id}.")
+        
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error assigning user to course: {e}")
+        
+        finally:
+            self.session.close()
 
     def get_user_by_username_or_email(self, username_or_email):
         try:
@@ -248,6 +279,40 @@ class DatabaseManager:
         finally:
             self.session.close()
 
+    def delete_with_cascade(self, entity_class, id):
+        try:
+            instance = self.session.query(entity_class).filter_by(id=id).first()
+            if not instance:
+                self._recursive_delete(instance)
+                
+                self.session.delete(instance)
+
+                # Start with the main entity
+                
+                # Recursively delete related entities
+                
+                self.session.commit()
+                return True
+            else:
+                raise ValueError(f"{entity_class.__name__} with id {id} not found")
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error deleting {entity_class.__name__}: {e}")
+            return False
+        finally:
+            self.session.close()
+
+    def _recursive_delete(self, instance):
+        for relationship in instance.__mapper__.relationships.values():
+            related_entities = self.session.query(relationship.entity).filter(
+                relationship.column == instance.id
+            )
+            
+            for related_entity in related_entities:
+                self.session.delete(related_entity)
+                
+                # Recursively delete nested relationships
+                self._recursive_delete(related_entity)
     def get(self, entity_class, id):
         try:
             instance = self.session.query(entity_class).filter_by(id=id).first()
@@ -278,6 +343,20 @@ class DatabaseManager:
             self.session.rollback()
             print(f"Error getting related objects: {e}")
             return []
+        finally:
+            self.session.close()
+
+    def find_course_by_codename(self, codename):
+        try:
+            course = self.session.query(Course).filter_by(codename=codename).first()
+            if course:
+                return course.__dict__
+            else:
+                return None
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error finding course: {e}")
+            return None
         finally:
             self.session.close()
 
