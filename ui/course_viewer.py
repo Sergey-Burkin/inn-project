@@ -49,10 +49,10 @@ class CourseViewer(PageWindow):
         right_widget.setLayout(right_layout)
 
         # Progress Bar
-
+        progress = DatabaseManager().calculate_progress(settings.current_user["id"], settings.current_course["id"])
         progress_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(75)
+        self.progress_bar.setValue(int(progress * 100))
         progress_layout.addWidget(QLabel("Прогресс по курсу:"))
         progress_layout.addWidget(self.progress_bar)
         progress_widget = QWidget()
@@ -131,7 +131,7 @@ class CourseViewer(PageWindow):
         db_manager = DatabaseManager()
         attempts = db_manager.count_attempts(settings.current_user["id"], test_id)
 
-        if attempts is None or attempts >= 0:
+        if attempts is None or attempts <= 3:
             response = QMessageBox.question(
                 self,
                 "Confirm",

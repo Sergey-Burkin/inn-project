@@ -86,7 +86,7 @@ class AttemptDetailsWindow(QWidget):
             answers_layout = QVBoxLayout()
             layout.addLayout(answers_layout)
             self.answers = db_manager.get_related_objects("test_attempt_id", models.database.Answer, attempt["id"])
-            print(self.answers)
+            print(db_manager.calculate_average_score(attempt_id))
             for answer in self.answers:
                 question = db_manager.get(models.database.TestQuestion, answer["test_question_id"])
                 answers_layout.addWidget(QLabel(f"{question["title"]}:"))

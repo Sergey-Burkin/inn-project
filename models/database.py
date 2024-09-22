@@ -478,6 +478,67 @@ class DatabaseManager:
         finally:
             self.session.close()
     
+    def calculate_progress(self, user_id, course_id):
+        try:
+            # Query all tests for the given course
+            tests_query = self.session.query(Test).filter_by(course_id=course_id)
+            
+            # Initialize total score and count of tests
+            total_score = 0
+            num_tests = 0
+            
+            # Iterate through each test
+            for test in tests_query.all():
+                num_tests += 1
+                
+                # Find all attempts for this test
+                attempts_query = self.session.query(TestAttempt).filter_by(
+                    test_id=test.id,
+                    user_id=user_id
+                )
+                
+                best_score = 0
+                
+                # Calculate average score for each attempt and find the best
+                for attempt in attempts_query.all():
+                    avg_score = self.calculate_average_score(attempt.id)
+                    
+                    if avg_score is not None and avg_score > best_score:
+                        best_score = avg_score
+                
+                # Add the best score to the total
+                total_score += best_score
+            
+            # Calculate overall progress
+            if num_tests > 0:
+                progress = total_score / num_tests
+            else:
+                progress = 0
+            
+            return progress
+        
+        except Exception as e:
+            print(f"Error calculating progress: {str(e)}")
+            return None
+    
+    def calculate_average_score(self, attempt_id):
+        try:
+            query = self.session.query(
+                func.sum(Answer.score).label('total_score'),
+                func.count(Answer.id).label('num_answers')
+            ).join(TestAttempt).filter(TestAttempt.id == attempt_id)
+
+            result = query.first()
+
+            if result is None or result.total_score is None or result.num_answers == 0:
+                return 0  # No answers or invalid attempt ID
+
+            avg_score = result.total_score / result.num_answers
+            return avg_score
+
+        except Exception as e:
+            print(f"Error calculating average score: {str(e)}")
+            return None
 # Usage example:
 db_manager = DatabaseManager()
 
