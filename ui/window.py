@@ -8,6 +8,9 @@ from ui.courses_window import CourseWindow
 from ui.login_window import LoginWindow
 from ui.course_editor import CourseEditor
 from ui.test_editor import TestEditor
+from ui.course_viewer import CourseViewer
+from ui.test_viewer import TestViewer
+from ui.attempts_view import AttemptViewer
 from models.database import DatabaseManager
 
 
@@ -26,6 +29,9 @@ class Window(QtWidgets.QMainWindow):
         self.register(LoginWindow(), "login")
         self.register(CourseEditor(), "course_editor")
         self.register(TestEditor(), "test_editor")
+        self.register(CourseViewer(), "course_viewer")
+        self.register(TestViewer(), "test_viewer")
+        self.register(AttemptViewer(), "attempt_viewer")
         DatabaseManager().authenticate_user("guru", "guru")
         self.goto("course")
         # self.goto("main")

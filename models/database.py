@@ -1,5 +1,5 @@
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import or_, create_engine, Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Table
+from sqlalchemy import or_, create_engine, Column, Integer, Float, String, Text, Numeric, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.pool import QueuePool
@@ -11,6 +11,7 @@ import settings
 from datetime import datetime
 
 from sqlalchemy import text
+from sqlalchemy import func
 
 
 Base = declarative_base()
@@ -121,6 +122,8 @@ class Answer(Base):
     test_attempt_id = Column(Integer, ForeignKey('test_attempts.id', ondelete='CASCADE'))
     test_question_id = Column(Integer, ForeignKey('test_questions.id', ondelete='CASCADE'))
     given_answer = Column(Text)
+    score = Column(Float, default=0.0)
+
 
     attempt = relationship("TestAttempt", back_populates="answers")
     question = relationship("TestQuestion", back_populates="answers")
@@ -433,6 +436,20 @@ class DatabaseManager:
             self.session.rollback()
             print(f"Error dropping test attempts: {e}")
             return False
+        finally:
+            self.session.close()
+
+    def count_attempts(self, user_id, test_id):
+        try:
+            result = self.session.query(func.count()).\
+                filter(TestAttempt.user_id == user_id).\
+                filter(TestAttempt.test_id == test_id).\
+                scalar()
+            return result
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error counting attempts: {e}")
+            return None
         finally:
             self.session.close()
 

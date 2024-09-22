@@ -67,6 +67,7 @@ class CourseEditor(PageWindow):
         self.new_test_button = QPushButton("New Test")
         self.edit_test_button = QPushButton("Edit Test")
         self.delete_test_button = QPushButton("Delete Test")
+        self.attempt_button = QPushButton("Show Attempts")
         self.new_video_button = QPushButton("New Video")
         self.delete_video_button = QPushButton("Delete Video")
         self.clear_structure_button = QPushButton("Clear Structure")
@@ -77,6 +78,7 @@ class CourseEditor(PageWindow):
         right_layout.addWidget(self.new_test_button)
         right_layout.addWidget(self.edit_test_button)
         right_layout.addWidget(self.delete_test_button)
+        right_layout.addWidget(self.attempt_button)
         right_layout.addWidget(self.new_video_button)
         right_layout.addWidget(self.delete_video_button)
         right_layout.addWidget(self.clear_structure_button)
@@ -106,6 +108,7 @@ class CourseEditor(PageWindow):
         self.new_test_button.clicked.connect(self.on_new_test)
         self.edit_test_button.clicked.connect(self.on_edit_test)
         self.delete_test_button.clicked.connect(self.on_delete_test)
+        self.attempt_button.clicked.connect(self.on_attempt)
         self.new_video_button.clicked.connect(self.on_new_video)
         self.delete_video_button.clicked.connect(self.on_delete_video)
         self.clear_structure_button.clicked.connect(self.on_clear_structure)
@@ -169,6 +172,17 @@ class CourseEditor(PageWindow):
             test_id = self.tests[item_index]["id"]
             db_manager.delete(models.database.Test, test_id)
             self.load_tests_from_database()
+    
+    @pyqtSlot()
+    def on_attempt(self):
+        selected_item = self.tests_list.currentItem()
+        if not selected_item:
+            return
+        settings.current_test = self.tests[self.tests_list.row(selected_item)]
+        item_index = self.tests_list.row(selected_item)
+        self.goto("attempt_viewer")
+
+
 
     @pyqtSlot()
     def on_new_video(self):
@@ -251,12 +265,6 @@ class CourseEditor(PageWindow):
         row = self.videos_list.row(item)
         self.structure_items.append({"type": "video", "id": self.videos[row]["id"]})
         self.dislplay_structure()
-
-    def add_to_structure(self, name):
-        type_name = "Test" if self.tests_list.currentRow() != self.videos_list.currentRow() else "Video"
-        new_item = QListWidgetItem(f"{type_name}: {name}")
-        self.structure_view.addItem(new_item)
-        self.structure_items.append((type_name, name))
 
 
     def load_tests_from_database(self):

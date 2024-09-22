@@ -41,13 +41,16 @@ class CourseWindow(PageWindow):
         self.loadCoursesFromDatabase()
         # Buttons
         button_layout = QHBoxLayout()
-        go_to_button = QPushButton("Go To Course")
-        logout_button = QPushButton("Logout")
-        go_to_button.clicked.connect(self.on_go_to_course)
-        logout_button.clicked.connect(self.on_logout)
+        if settings.current_user["role"] == "student":
+        
+            go_to_button = QPushButton("Go To Course")
+            go_to_button.clicked.connect(self.on_go_to_course)
+            button_layout.addWidget(go_to_button)
 
-        button_layout.addWidget(go_to_button)
+        logout_button = QPushButton("Logout")
+        logout_button.clicked.connect(self.on_logout)
         button_layout.addWidget(logout_button)
+
         if settings.current_user["role"] == "teacher":
             add_course_button = QPushButton("Add Course")
             delete_course_button = QPushButton("Delete Course")
@@ -103,10 +106,10 @@ class CourseWindow(PageWindow):
         if not selected_item:
             QMessageBox.warning(self, "Warning", "Please select a course!")
             return
+
+        settings.current_course = self.courses[self.course_list.row(selected_item)]
         
-        # Navigate to the selected course
-        # You'll need to implement this navigation logic
-        pass
+        self.goto("course_viewer")
 
     @pyqtSlot()
     def on_logout(self):

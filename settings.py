@@ -7,3 +7,5 @@ def init():
     current_test = {}
     global current_question
     current_question = {}
+    global current_attempt
+    current_attempt = {}
