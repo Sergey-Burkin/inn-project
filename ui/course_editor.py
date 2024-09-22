@@ -6,6 +6,8 @@ from ui.page_window import PageWindow
 import settings
 from models.database import DatabaseManager
 import models.database
+import json
+import json  # Add this line
 
 class CourseEditor(PageWindow):
     def __init__(self):
@@ -46,6 +48,7 @@ class CourseEditor(PageWindow):
 
         # Center: Structure view
         self.structure_view = QListWidget()
+        self.load_structure_from_database()
         self.dislplay_structure()
         center_widget = QWidget()
 
@@ -202,8 +205,26 @@ class CourseEditor(PageWindow):
 
     @pyqtSlot()
     def on_save_structure(self):
-        # Implement save structure logic here
-        pass
+        # Convert self.structure_items to JSON
+        structure_json = json.dumps(self.structure_items)
+
+        # Edit the current course structure
+        db_manager = DatabaseManager()
+        db_manager.edit(
+            models.database.Course,
+            settings.current_course["id"],
+            "structure",
+            structure_json
+        )
+
+        # Update the current course settings
+        settings.current_course["structure"] = structure_json
+
+        # Show a success message
+        QMessageBox.information(self, "Success", "Course structure saved successfully!")
+
+        # Optionally, reload the structure display
+        self.dislplay_structure()
 
     @pyqtSlot()
     def on_go_back(self):
@@ -254,8 +275,27 @@ class CourseEditor(PageWindow):
                 print(f"Warning: Video with ID {video['id']} not found")
 
     def load_structure_from_database(self):
-        self.structure_items = []
-
+        db_manager = DatabaseManager()
+        
+        # First, check if the structure exists in the database
+        structure = db_manager.get(models.database.Course, settings.current_course["id"])
+        
+        if structure is None:
+            # If no structure exists, initialize self.structure_items as an empty list
+            self.structure_items = []
+        else:
+            # Check if the structure field exists and is not None
+            # Unserialize the JSON string stored in the database
+            if "structure" in structure and structure["structure"] is not None:
+                # Unserialize the JSON string stored in the database
+                self.structure_items = json.loads(structure["structure"])
+            else:
+                # If structure doesn't exist or is None, initialize as an empty list
+                self.structure_items = []
+        
+        # Call display_structure to update the UI
+        self.dislplay_structure()
+        
     def dislplay_structure(self):
         self.structure_view.clear()
         db_manager = DatabaseManager()
@@ -280,9 +320,6 @@ class CourseEditor(PageWindow):
     # Add new function
     @pyqtSlot()
     def on_configure_course(self):
-        # Implement course configuration logic here
-        # You might want to open a new window or dialog for course settings
-        # For example:
         self.course_settings_window = CourseSettingsWindow()
         self.course_settings_window.show()
 

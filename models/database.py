@@ -1,3 +1,4 @@
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import or_, create_engine, Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -30,6 +31,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     courses = relationship("Course", secondary=user_courses, back_populates="students")
+    test_attempts = relationship("TestAttempt", back_populates="user")
 
 
 class Course(Base):
@@ -38,7 +40,7 @@ class Course(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(200), nullable=False)
     description = Column(Text)
-    codename = Column(String(50))  # added codename column
+    codename = Column(String(50))
     teacher_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -46,6 +48,10 @@ class Course(Base):
     video_materials = relationship("VideoMaterial", back_populates="course")
 
     students = relationship("User", secondary=user_courses, back_populates="courses")
+    structure = Column(JSONB())
+
+    def __repr__(self):
+        return f'Course(id={self.id}, title={self.title})'
 
 class VideoMaterial(Base):
     __tablename__ = 'video_materials'
@@ -66,7 +72,13 @@ class Test(Base):
     course_id = Column(Integer, ForeignKey('courses.id', ondelete='CASCADE'))
     title = Column(String(200), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    questions = relationship("TestQuestion", back_populates="test")
+    attempts = relationship("TestAttempt", back_populates="test")
+    structure = Column(JSONB) 
 
+    def __repr__(self):
+        return f'Test(id={self.id}, title={self.title})'
     course = relationship("Course", back_populates="tests")
 
 class TestQuestion(Base):
@@ -78,23 +90,43 @@ class TestQuestion(Base):
     correct_answer = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class UserAnswer(Base):
-    __tablename__ = 'user_answers'
+    title = Column(String(255), nullable=False)
+    test = relationship("Test", back_populates="questions")
+    answers = relationship("Answer", back_populates="question")
+
+    def __repr__(self):
+        return f'TestQuestion(id={self.id}, test_id={self.test_id}, title={self.title}, question_text={self.question_text})'
+
+class TestAttempt(Base):
+    __tablename__ = 'test_attempts'
     
     id = Column(Integer, primary_key=True)
+    test_id = Column(Integer, ForeignKey('tests.id', ondelete='CASCADE'))
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
-    test_question_id = Column(Integer, ForeignKey('test_questions.id', ondelete='CASCADE'))
-    answer_text = Column(String(255))
     submitted_at = Column(DateTime, default=datetime.utcnow)
 
-class Grade(Base):
-    __tablename__ = 'grades'
+    test = relationship("Test", back_populates="attempts")
+    user = relationship("User", back_populates="test_attempts")
+    answers = relationship("Answer", back_populates="attempt")
+
+    def __repr__(self):
+        return f'TestAttempt(id={self.id}, test_id={self.test_id}, user_id={self.user_id}, submitted_at={self.submitted_at})'
+
+
+class Answer(Base):
+    __tablename__ = 'answers'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    course_id = Column(Integer, ForeignKey('courses.id'))
-    grade = Column(Numeric(5,2))
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    test_attempt_id = Column(Integer, ForeignKey('test_attempts.id', ondelete='CASCADE'))
+    test_question_id = Column(Integer, ForeignKey('test_questions.id', ondelete='CASCADE'))
+    given_answer = Column(Text)
+
+    attempt = relationship("TestAttempt", back_populates="answers")
+    question = relationship("TestQuestion", back_populates="answers")
+
+    def __repr__(self):
+        return f'Answer(id={self.id}, test_attempt_id={self.test_attempt_id}, test_question_id={self.test_question_id}, given_answer={self.given_answer})'
+
 class DatabaseManager:
     def __init__(self):
         self.engine = create_engine('postgresql://postgres:admin@localhost/online_learning_db', 
@@ -360,9 +392,63 @@ class DatabaseManager:
         finally:
             self.session.close()
 
+    def create_test_attempt(self, test_id, user_id):
+        try:
+            attempt = TestAttempt(test_id=test_id, user_id=user_id)
+            self.session.add(attempt)
+            self.session.commit()
+            print(f"Test attempt created successfully")
+            return attempt.id
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error creating test attempt: {e}")
+            return None
+        finally:
+            self.session.close()
+
+    def submit_answer(self, test_attempt_id, test_question_id, given_answer):
+        try:
+            answer = Answer(
+                test_attempt_id=test_attempt_id,
+                test_question_id=test_question_id,
+                given_answer=given_answer
+            )
+            self.session.add(answer)
+            self.session.commit()
+            print(f"Answer submitted successfully")
+            return answer.id
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error submitting answer: {e}")
+            return None
+        finally:
+            self.session.close()
+
+    def get_test_results(self, test_id):
+        try:
+            attempts = self.session.query(TestAttempt).filter_by(test_id=test_id).all()
+            results = []
+            for attempt in attempts:
+                attempt_results = {
+                    "attempt_id": attempt.id,
+                    "user_id": attempt.user_id,
+                    "submitted_at": attempt.submitted_at,
+                    "answers": []
+                }
+                for answer in attempt.answers:
+                    attempt_results["answers"].append({
+                        "question_title": answer.question.title,
+                        "correct_answer": answer.question.correct_answer,
+                        "given_answer": answer.given_answer
+                    })
+                results.append(attempt_results)
+            return results
+        except OperationalError as e:
+            print(f"Error fetching test results: {e}")
+            return None
+        finally:
+            self.session.close()
     
 # Usage example:
 db_manager = DatabaseManager()
 
-# db_manager.add(Test, {"title": "New Test", "total_questions": 10})
-# db_manager.edit(Course, 1, "title", "Самый первый курс, с id=1")
