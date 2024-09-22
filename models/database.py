@@ -10,6 +10,7 @@ import bcrypt
 import settings
 from datetime import datetime
 
+from sqlalchemy import text
 
 
 Base = declarative_base()
@@ -86,7 +87,7 @@ class TestQuestion(Base):
     
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey('tests.id', ondelete='CASCADE'))
-    question_text = Column(Text, nullable=False)
+    question_text = Column(Text, nullable=True)
     correct_answer = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -156,22 +157,12 @@ class DatabaseManager:
     def create_course(self, title, teacher_id):
         try:
             # Create the course
-            course = Course(title=title, teacher_id=teacher_id)
-            self.session.add(course)
-            self.session.commit()
+            course_id = self.add(Course, {"title": title, "teacher_id": teacher_id})
             
-            # Get the newly created course ID
-            new_course_id = course.id
+            if course_id is None:
+                raise ValueError("Failed to create course")
             
-            # Add the (teacher_id, course_id) tuple to user_courses
-            self.session.execute(
-                user_courses.insert().values(
-                    user_id=teacher_id,
-                    course_id=new_course_id
-                )
-            )
-            
-            self.session.commit()
+            self.assign_user_to_course(teacher_id, course_id)
             print(f"Course '{title}' created successfully")
         except OperationalError as e:
             self.session.rollback()
@@ -360,23 +351,30 @@ class DatabaseManager:
             self.session.close()
     
 
-    def get_related_objects(self, parent_entity_class, child_entity_class, parent_id):
+    def get_related_objects(self, feature, class_name, feature_value):
+        """
+        Get related objects of type class_name associated with the given feature and feature_value.
+        
+        :param feature: The feature to filter by (e.g., "course_id")
+        :param class_name: The class of the objects to retrieve (e.g., Test)
+        :param feature_value: The value of the feature to filter by (e.g., course_id)
+        :return: List of dictionaries representing the related objects
+        """
         try:
-            parent_instance = self.session.query(parent_entity_class).filter_by(id=parent_id).first()
-            if not parent_instance:
-                raise ValueError(f"{parent_entity_class.__name__} with id {parent_id} not found")
-
-            children = self.session.query(child_entity_class).filter(
-                child_entity_class.course_id == parent_id
-            ).all()
-
-            return [child.__dict__ for child in children]
-        except OperationalError as e:
-            self.session.rollback()
-            print(f"Error getting related objects: {e}")
+            with self.session.begin():
+                query = self.session.query(class_name).filter(getattr(class_name, feature) == feature_value)
+                related_objects = query.all()
+                
+                # Convert the objects to dictionaries, excluding internal SQLAlchemy attributes
+                result = []
+                for obj in related_objects:
+                    obj_dict = {k: v for k, v in obj.__dict__.items() if not k.startswith('_sa_')}
+                    result.append(obj_dict)
+                return result
+        except Exception as e:
+            print(f"Error fetching related objects: {str(e)}")
             return []
-        finally:
-            self.session.close()
+        
 
     def find_course_by_codename(self, codename):
         try:
@@ -421,6 +419,20 @@ class DatabaseManager:
             self.session.rollback()
             print(f"Error submitting answer: {e}")
             return None
+        finally:
+            self.session.close()
+
+    def drop_attempts(self, test_id):
+        try:
+            # Delete all TestAttempt records associated with the given test_id
+            self.session.query(TestAttempt).filter_by(test_id=test_id).delete()
+            self.session.commit()
+            print(f"All test attempts for test {test_id} have been deleted.")
+            return True
+        except OperationalError as e:
+            self.session.rollback()
+            print(f"Error dropping test attempts: {e}")
+            return False
         finally:
             self.session.close()
 

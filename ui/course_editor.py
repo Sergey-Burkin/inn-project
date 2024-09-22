@@ -136,12 +136,22 @@ class CourseEditor(PageWindow):
 
     @pyqtSlot()
     def on_edit_test(self):
-        ## TODO
         selected_item = self.tests_list.currentItem()
         if selected_item:
-            new_name, ok = QInputDialog.getText(self, "Edit Test", f"Enter new name for '{selected_item.text()}':")
-            if ok and new_name:
-                selected_item.setText(new_name)
+            settings.current_test = self.tests[self.tests_list.row(selected_item)]
+                
+            db_manager = DatabaseManager()
+            attempts_count = db_manager.session.query(models.database.TestAttempt).filter_by(test_id=settings.current_test["id"]).count()
+            
+            if attempts_count > 0:
+                confirm_message = QMessageBox.question(self, "Confirm Test Edit", 
+                    f"Editing test '{selected_item.text()}' will drop {attempts_count} existing attempts. Are you sure?")
+                    
+                if confirm_message == QMessageBox.Yes:
+                    # Drop attempts
+                    db_manager.drop_attempts(settings.current_test["id"])
+                    
+            self.goto("test_editor")
 
     @pyqtSlot()
     def on_delete_test(self):
@@ -252,8 +262,7 @@ class CourseEditor(PageWindow):
     def load_tests_from_database(self):
         self.tests_list.clear()
         db_manager = DatabaseManager()
-        self.tests = db_manager.get_related_objects(models.database.Course, models.database.Test, settings.current_course["id"])
-
+        self.tests = db_manager.get_related_objects("course_id", models.database.Test, settings.current_course["id"])
         for test in self.tests:
             if test:
                 item = QListWidgetItem(test["title"])
@@ -265,7 +274,7 @@ class CourseEditor(PageWindow):
     def load_videos_from_database(self):
         self.videos_list.clear()
         db_manager = DatabaseManager()
-        self.videos = db_manager.get_related_objects(models.database.Course, models.database.VideoMaterial, settings.current_course["id"])
+        self.videos = db_manager.get_related_objects("course_id", models.database.VideoMaterial, settings.current_course["id"])
 
         for video in self.videos:
             if video:
@@ -320,81 +329,81 @@ class CourseEditor(PageWindow):
     # Add new function
     @pyqtSlot()
     def on_configure_course(self):
-        self.course_settings_window = CourseSettingsWindow()
+        self.course_settings_window = self.CourseSettingsWindow()
         self.course_settings_window.show()
 
-class CourseSettingsWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Course Settings")
-        self.setGeometry(100, 100, 400, 200)
-        
-        layout = QVBoxLayout()
-        
-        # Add fields for course settings (e.g., codename, description, etc.)
-        self.course_codename = QLineEdit()
-        self.course_codename.setText(settings.current_course["codename"])
-        
-        self.course_description = QTextEdit()
-
-        self.course_description.setPlainText(settings.current_course["description"])
-        
-
-        layout.addWidget(QLabel("Course Description:"))
-        layout.addWidget(self.course_description)
-        layout.addWidget(QLabel("Course Codename:"))
-        layout.addWidget(self.course_codename)
-
-        
-        save_button = QPushButton("Save Changes")
-        cancel_button = QPushButton("Cancel")
-        
-        layout.addWidget(save_button)
-        layout.addWidget(cancel_button)
-        
-        self.setLayout(layout)
-        
-        # Connect save and cancel actions
-        save_button.clicked.connect(self.save_changes)
-        cancel_button.clicked.connect(self.close)
-    
-    def save_changes(self):
-        # Get the new codename
-        new_codename = self.course_codename.text().strip()
-
-        # Check if the codename exceeds the limit
-        if len(new_codename) > 50 or len(new_codename) == 0:
-            if len(new_codename) > 50:
-                QMessageBox.warning(self, "Warning", f"The codename '{new_codename}' is too long. Maximum allowed length is 50 characters.")
-                return
-            elif settings.current_course["codename"]:
-                QMessageBox.warning(self, "Error", "The codename cannot be empty.")
-                return
-            else:
-                new_codename = None
-
-        # Check if the codename is being changed
-        if new_codename != settings.current_course["codename"]:
-            # Check if the new codename is already in use
-            db_manager = DatabaseManager()
-            existing_course = db_manager.find_course_by_codename(new_codename)
+    class CourseSettingsWindow(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("Course Settings")
+            self.setGeometry(100, 100, 400, 200)
             
-            if existing_course and existing_course["id"] != settings.current_course["id"]:
-                # Codename is already in use by another course
-                QMessageBox.warning(self, "Warning", f"The codename '{new_codename}' is already in use.")
-                return
+            layout = QVBoxLayout()
+            
+            # Add fields for course settings (e.g., codename, description, etc.)
+            self.course_codename = QLineEdit()
+            self.course_codename.setText(settings.current_course["codename"])
+            
+            self.course_description = QTextEdit()
+
+            self.course_description.setPlainText(settings.current_course["description"])
+            
+
+            layout.addWidget(QLabel("Course Description:"))
+            layout.addWidget(self.course_description)
+            layout.addWidget(QLabel("Course Codename:"))
+            layout.addWidget(self.course_codename)
+
+            
+            save_button = QPushButton("Save Changes")
+            cancel_button = QPushButton("Cancel")
+            
+            layout.addWidget(save_button)
+            layout.addWidget(cancel_button)
+            
+            self.setLayout(layout)
+            
+            # Connect save and cancel actions
+            save_button.clicked.connect(self.save_changes)
+            cancel_button.clicked.connect(self.close)
         
-        # Save course settings to database
-        db_manager = DatabaseManager()
-        db_manager.edit(models.database.Course, settings.current_course["id"], "codename", new_codename)
-        db_manager.edit(models.database.Course, settings.current_course["id"], "description", self.course_description.toPlainText())
-        
-        # Update current course settings
-        settings.current_course["codename"] = new_codename
-        settings.current_course["description"] = self.course_description.toPlainText()
-        
-        print("Course settings saved successfully!")
-        self.close()
+        def save_changes(self):
+            # Get the new codename
+            new_codename = self.course_codename.text().strip()
+
+            # Check if the codename exceeds the limit
+            if len(new_codename) > 50 or len(new_codename) == 0:
+                if len(new_codename) > 50:
+                    QMessageBox.warning(self, "Warning", f"The codename '{new_codename}' is too long. Maximum allowed length is 50 characters.")
+                    return
+                elif settings.current_course["codename"]:
+                    QMessageBox.warning(self, "Error", "The codename cannot be empty.")
+                    return
+                else:
+                    new_codename = None
+
+            # Check if the codename is being changed
+            if new_codename != settings.current_course["codename"]:
+                # Check if the new codename is already in use
+                db_manager = DatabaseManager()
+                existing_course = db_manager.find_course_by_codename(new_codename)
+                
+                if existing_course and existing_course["id"] != settings.current_course["id"]:
+                    # Codename is already in use by another course
+                    QMessageBox.warning(self, "Warning", f"The codename '{new_codename}' is already in use.")
+                    return
+            
+            # Save course settings to database
+            db_manager = DatabaseManager()
+            db_manager.edit(models.database.Course, settings.current_course["id"], "codename", new_codename)
+            db_manager.edit(models.database.Course, settings.current_course["id"], "description", self.course_description.toPlainText())
+            
+            # Update current course settings
+            settings.current_course["codename"] = new_codename
+            settings.current_course["description"] = self.course_description.toPlainText()
+            
+            print("Course settings saved successfully!")
+            self.close()
 
 # Add import statement at the top of the file
 from PyQt5.QtWidgets import QLineEdit, QTextEdit
