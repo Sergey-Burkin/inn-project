@@ -7,7 +7,10 @@ import settings
 from models.database import DatabaseManager
 import models.database
 import json
-import json  # Add this line
+from models.video_manager import VideoManager
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QInputDialog
+
+
 
 class CourseEditor(PageWindow):
     def __init__(self):
@@ -35,6 +38,7 @@ class CourseEditor(PageWindow):
         left_layout.addWidget(self.tests_list)
         
         # Add label for Videos
+        vm = VideoManager()
         videos_label = QLabel("Videos")
         videos_label.setFont(QFont('Arial', 12))
         videos_label.setAlignment(Qt.AlignCenter)
@@ -184,24 +188,47 @@ class CourseEditor(PageWindow):
 
 
 
+
+
     @pyqtSlot()
     def on_new_video(self):
-        video_name, ok = QInputDialog.getText(self, "Add Video", "Enter Video name:")
-        if ok and video_name:
-            if len(video_name) > 200:
-                QMessageBox.warning(self, "Warning", f"The video name '{video_name}' is too long. It has {len(video_name)} characters, but the maximum allowed is 200.")
-                return
-            if len(video_name.strip()) == 0:
-                QMessageBox.warning(self, "Error", "Video name cannot be empty.")
-                return
-
+        # Ask for a file path
+        filepath, _ = QFileDialog.getOpenFileName(self, "Select Video File", "", "Video Files (*.mp4 *.avi *.mov)")
+        
+        if not filepath:
+            return  # User cancelled the file dialog
+        
+        # Get the video name from the file path
+        default_title = filepath.split('/')[-1]
+        
+        # Ask for a title
+        video_title, ok = QInputDialog.getText(self, "Enter Video Title", "Please enter a title for your video:", text=default_title)
+        
+        if not ok or not video_title.strip():
+            QMessageBox.warning(self, "Error", "Video title cannot be empty.")
+            return
+        
+        # Validate the video title length
+        if len(video_title) > 200:
+            QMessageBox.warning(self, "Warning", f"The video title '{video_title}' is too long. It has {len(video_title)} characters, but the maximum allowed is 200.")
+            return
+        
+        # Use VideoManager to upload the video
+        video_manager = VideoManager()
+        url = video_manager.upload_video(filepath)
+        print(url)
+        if url:
+            # Add the video to the database
             db_manager = DatabaseManager()
             db_manager.add(models.database.VideoMaterial, {
-                "title": video_name,
+                "title": video_title,
                 "course_id": settings.current_course["id"],
-                "file_path": ""  # Initially set to empty string, can be updated later
+                "file_path": url
             })
-
+            
+            QMessageBox.information(self, "Success", f"Video '{video_title}' uploaded successfully!")
+        else:
+            QMessageBox.warning(self, "Error", "Failed to upload video.")
         self.load_videos_from_database()
 
 
@@ -217,8 +244,11 @@ class CourseEditor(PageWindow):
         confirm_delete = QMessageBox.question(self, "Confirm Deletion", f"Are you sure you want to delete video '{item_text}'?")
 
         if confirm_delete == QMessageBox.Yes:
+            
             db_manager = DatabaseManager()
             video_id = self.videos[item_index]["id"]
+            video = db_manager
+            VideoManager().delete_video()
             db_manager.delete(models.database.VideoMaterial, video_id)
             self.load_videos_from_database()
 

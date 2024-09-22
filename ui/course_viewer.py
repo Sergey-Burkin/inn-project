@@ -1,12 +1,14 @@
 import sys
-from PyQt5.QtWidgets import QLabel, QProgressBar, QTextEdit, QDialogButtonBox, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout, QInputDialog, QMessageBox
+from PyQt5.QtWidgets import QLabel, QTextBrowser, QProgressBar, QTextEdit, QDialogButtonBox, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout, QInputDialog, QMessageBox
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QFont
+import models.video_manager
 from ui.page_window import PageWindow
 import settings
 from models.database import DatabaseManager
 import models.database
 import json
+from models.video_manager import VideoManager
 
 class CourseViewer(PageWindow):
     def __init__(self):
@@ -168,7 +170,10 @@ class CourseViewer(PageWindow):
         self.goto("test_viewer")
 
     def open_video(self, video_id):
-        print(f"video{video_id}")
+        db_manager = DatabaseManager()
+        video = db_manager.get(models.database.VideoMaterial, video_id)
+        self.micro = MicroWindow(video=video)
+        self.micro.show()
 
     @pyqtSlot()
     def on_open(self):
@@ -198,3 +203,21 @@ class CourseViewer(PageWindow):
         
         # Call display_structure to update the UI
         self.dislplay_structure()
+
+
+class MicroWindow(QWidget):
+    def __init__(self, video):
+        super().__init__()
+
+        self.setGeometry(300, 300, 400, 200)
+        self.setWindowTitle('Hyperlink Example')
+        
+        label = QTextBrowser(self)
+        label.setGeometry(20, 20, 360, 160)
+        link = video["file_path"]
+        # Set HTML formatting
+        html = f"<html><body><center><h1><a href=\"{link}\">Download your video</a></h1></body></html>"
+        
+        # Apply HTML formatting
+        label.setOpenExternalLinks(True)
+        label.setHtml(html)

@@ -1,3 +1,5 @@
+models/tokens.py
+*.mp4
 # Python cache files
 *.pyc
 *.pyo
