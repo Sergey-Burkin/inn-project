@@ -129,7 +129,6 @@ class CourseViewer(PageWindow):
             self.open_video(selected_item["id"])
 
     def open_test(self, test_id):
-        print(f"opened test{test_id}")
         db_manager = DatabaseManager()
         attempts = db_manager.count_attempts(settings.current_user["id"], test_id)
 
@@ -172,7 +171,7 @@ class CourseViewer(PageWindow):
     def open_video(self, video_id):
         db_manager = DatabaseManager()
         video = db_manager.get(models.database.VideoMaterial, video_id)
-        self.micro = MicroWindow(video=video)
+        self.micro = self.MicroWindow(video=video)
         self.micro.show()
 
     @pyqtSlot()
@@ -205,19 +204,19 @@ class CourseViewer(PageWindow):
         self.dislplay_structure()
 
 
-class MicroWindow(QWidget):
-    def __init__(self, video):
-        super().__init__()
+    class MicroWindow(QWidget):
+        def __init__(self, video):
+            super().__init__()
 
-        self.setGeometry(300, 300, 400, 200)
-        self.setWindowTitle('Hyperlink Example')
-        
-        label = QTextBrowser(self)
-        label.setGeometry(20, 20, 360, 160)
-        link = video["file_path"]
-        # Set HTML formatting
-        html = f"<html><body><center><h1><a href=\"{link}\">Download your video</a></h1></body></html>"
-        
-        # Apply HTML formatting
-        label.setOpenExternalLinks(True)
-        label.setHtml(html)
+            self.setGeometry(300, 300, 400, 200)
+            self.setWindowTitle('Hyperlink Example')
+            
+            label = QTextBrowser(self)
+            label.setGeometry(20, 20, 360, 160)
+            link = video["file_path"]
+            # Set HTML formatting
+            html = f"<html><body><center><h1><a href=\"{link}\">Download your video</a></h1></body></html>"
+            
+            # Apply HTML formatting
+            label.setOpenExternalLinks(True)
+            label.setHtml(html)

@@ -56,7 +56,6 @@ class AttemptViewer(PageWindow):
     def on_attempt_double_clicked(self, item):
         selected_index = self.attempts_list.row(item)
         attempt_id = self.attempts[selected_index]["attempt_id"]
-        print(attempt_id)
         
         # Create a new window to display attempt details
         self.attempt_details_window = AttemptDetailsWindow(attempt_id)
@@ -86,7 +85,6 @@ class AttemptDetailsWindow(QWidget):
             answers_layout = QVBoxLayout()
             layout.addLayout(answers_layout)
             self.answers = db_manager.get_related_objects("test_attempt_id", models.database.Answer, attempt["id"])
-            print(db_manager.calculate_average_score(attempt_id))
             for answer in self.answers:
                 question = db_manager.get(models.database.TestQuestion, answer["test_question_id"])
                 answers_layout.addWidget(QLabel(f"{question["title"]}:"))

@@ -16,7 +16,6 @@ class TestViewer(PageWindow):
         self.user_answers = []
 
     def initUI(self):
-        print(settings.current_test["title"])
         self.setWindowTitle(settings.current_test["title"])
         central_widget = QWidget()
         self.setCentralWidget(central_widget)

@@ -32,9 +32,7 @@ class Window(QtWidgets.QMainWindow):
         self.register(CourseViewer(), "course_viewer")
         self.register(TestViewer(), "test_viewer")
         self.register(AttemptViewer(), "attempt_viewer")
-        DatabaseManager().authenticate_user("5", "5")
-        self.goto("course")
-        # self.goto("main")
+        self.goto("main")
 
     def register(self, widget, name):
         self.m_pages[name] = widget

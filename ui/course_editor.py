@@ -17,7 +17,6 @@ class CourseEditor(PageWindow):
         super().__init__()
         self.structure_items = []
     def initUI(self):
-        print(settings.current_course["title"])
         self.setWindowTitle(f"Редактор курса")
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
